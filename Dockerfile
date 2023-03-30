@@ -15,4 +15,7 @@ RUN apt-get update -y && \
 
 COPY --from=builder /build/main /app/
 
+ADD ./docs/db /app/docs/db
+ADD ./docs/words /app/docs/words
+
 ENTRYPOINT [ "/app/main" ]
