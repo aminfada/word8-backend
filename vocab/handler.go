@@ -142,6 +142,7 @@ func SubmitFeedback(c *gin.Context) {
 	}
 	data.DrawNo++
 
+	data.UpdatedAt = time.Now()
 	_, err = config.DB.Model(&data).WherePK().Update()
 	if err != nil {
 		log.Println(err)
