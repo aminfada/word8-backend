@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math"
 	"math/rand"
 	"time"
 	"vocab8/config"
@@ -42,9 +43,11 @@ func RenewThePool() {
 		}
 	}
 
+	high_failed_index := math.Max(0, float64(len(shuffled_high_failed)))
+
 	var all_words []db.Word
 	all_words = append(all_words, low_drawed...)
-	all_words = append(all_words, shuffled_high_failed[:50]...)
+	all_words = append(all_words, shuffled_high_failed[:int(high_failed_index)]...)
 
 	dest := make([]transport.Word, len(all_words))
 	perm = rand.Perm(len(all_words))
