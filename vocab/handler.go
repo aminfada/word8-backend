@@ -76,15 +76,33 @@ func AddVocab(c *gin.Context) {
 		return
 	}
 
-	data := db.Word{
-		Word:        r.Title,
-		Description: r.Description,
-	}
-	_, err = config.DB.Model(&data).Insert()
-	if err != nil {
-		log.Println(err)
-		handleResponse(c, r)
-		return
+	if r.Id > 0 {
+		data := db.Word{
+			Id:          r.Id,
+			Word:        r.Title,
+			Description: r.Description,
+		}
+		_, err = config.DB.Model(&data).
+			WherePK().
+			Column("description").
+			Column("word").
+			Update()
+		if err != nil {
+			log.Println(err)
+			handleResponse(c, r)
+			return
+		}
+	} else {
+		data := db.Word{
+			Word:        r.Title,
+			Description: r.Description,
+		}
+		_, err = config.DB.Model(&data).Insert()
+		if err != nil {
+			log.Println(err)
+			handleResponse(c, r)
+			return
+		}
 	}
 
 	r.Status = true
