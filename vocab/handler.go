@@ -25,20 +25,29 @@ func RenewThePool() {
 	var high_failed []db.Word
 	err = config.DB.Model(&high_failed).
 		Where("?<=?", pg.Ident("updated_at"), time.Now().Add(-time.Hour*24)).
-		OrderExpr("draw_fail DESC").
-		Limit(50).
+		Where("?>?", pg.Ident("draw_fail"), 0).
 		Select()
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
+	shuffled_high_failed := make([]db.Word, len(high_failed))
+	perm := rand.Perm(len(high_failed))
+	for i, v := range perm {
+		shuffled_high_failed[v] = db.Word{
+			Word:        high_failed[i].Word,
+			Description: high_failed[i].Description,
+			Id:          high_failed[i].Id,
+		}
+	}
+
 	var all_words []db.Word
 	all_words = append(all_words, low_drawed...)
-	all_words = append(all_words, high_failed...)
+	all_words = append(all_words, shuffled_high_failed[:50]...)
 
 	dest := make([]transport.Word, len(all_words))
-	perm := rand.Perm(len(all_words))
+	perm = rand.Perm(len(all_words))
 	for i, v := range perm {
 		dest[v] = transport.Word{
 			Title:       all_words[i].Word,
