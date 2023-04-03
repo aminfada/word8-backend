@@ -13,6 +13,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-pg/pg/v10"
+	htgotts "github.com/hegedustibor/htgo-tts"
+	"github.com/hegedustibor/htgo-tts/handlers"
+	"github.com/hegedustibor/htgo-tts/voices"
 )
 
 func RenewThePool() {
@@ -62,12 +65,37 @@ func RenewThePool() {
 	config.WordPool = dest
 }
 
+func speechVocab(id int) (speechUrl string, err error) {
+	var data db.Word
+	data.Id = id
+	err = config.DB.Model(&data).WherePK().Select()
+	if err != nil {
+		return
+	}
+
+	speech := htgotts.Speech{Folder: "audio", Language: voices.English, Handler: &handlers.Native{}}
+	filePath, err := speech.CreateSpeechFile(data.Word, "speech")
+	if err != nil {
+		return
+	}
+
+	speechUrl = config.Cfg.SpeechPath + filePath
+	return
+}
+
 func DrawVocab(c *gin.Context) {
 	var r transport.Word
 
 	pool_length := len(config.WordPool)
 	word_insex := rand.Intn(pool_length - 1)
 	r = config.WordPool[word_insex]
+	speechURL, err := speechVocab(r.Id)
+	if err != nil {
+		log.Println(err)
+		handleResponse(c, r)
+		return
+	}
+	r.Speech = speechURL
 
 	handleResponse(c, r)
 }

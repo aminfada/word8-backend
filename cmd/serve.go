@@ -35,7 +35,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	r := gin.Default()
 	r.Use(vocab.CorsMiddleware())
-
+	r.StaticFile(configs.Cfg.Context+"speech", configs.Cfg.SpeechPath+"speech.mp3")
 	baseRoute := r.Group(configs.Cfg.Context)
 	{
 		baseRoute.GET("vocab", vocab.DrawVocab)

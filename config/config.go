@@ -24,6 +24,7 @@ type Config struct {
 	Context    string  `toml:"context" `
 	DB         DBModel `toml:"db" `
 	WordPath   string  `toml:"word-path" `
+	SpeechPath string  `toml:"speech-path" `
 }
 
 type DBModel struct {
