@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"os"
 	"time"
 	"vocab8/config"
 	"vocab8/domain/db"
@@ -73,7 +74,12 @@ func speechVocab(id int) (speechUrl string, err error) {
 		return
 	}
 
-	speech := htgotts.Speech{Folder: "audio", Language: voices.English, Handler: &handlers.Native{}}
+	err = os.Remove(config.Cfg.SpeechPath + "speech.mp3")
+	if err != nil {
+		return
+	}
+
+	speech := htgotts.Speech{Folder: config.Cfg.SpeechPath, Language: voices.English, Handler: &handlers.Native{}}
 	filePath, err := speech.CreateSpeechFile(data.Word, "speech")
 	if err != nil {
 		return

@@ -1,6 +1,8 @@
 FROM golang:1.20 AS builder
 COPY . /build/
 WORKDIR /build
+RUN apt-get update -y && \
+    apt-get install libasound2-dev -y;
 RUN go mod tidy
 RUN go mod vendor
 RUN go build -o main /build/
