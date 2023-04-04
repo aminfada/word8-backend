@@ -38,7 +38,7 @@ func run(cmd *cobra.Command, args []string) {
 	r.StaticFile(configs.Cfg.Context+"speech", configs.Cfg.SpeechPath+"speech.mp3")
 	baseRoute := r.Group(configs.Cfg.Context)
 	{
-		baseRoute.GET("vocab", vocab.DrawVocab)
+		baseRoute.GET("vocab", vocab.DrawVocabOnMap)
 		baseRoute.POST("vocab", vocab.AddVocab)
 		baseRoute.PUT("vocab", vocab.SubmitFeedback)
 	}

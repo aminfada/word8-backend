@@ -14,7 +14,7 @@ var (
 	ConfigDir  string = "config/config.cfg"
 	Cfg        *Config
 	DB         *pg.DB
-	WordPool   []transport.Word
+	WordPool   map[int]transport.Word
 )
 
 type Config struct {

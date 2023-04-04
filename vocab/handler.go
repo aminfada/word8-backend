@@ -63,7 +63,12 @@ func RenewThePool() {
 		}
 	}
 
-	config.WordPool = dest
+	final_word_pool := make(map[int]transport.Word)
+	for _, el := range dest {
+		final_word_pool[el.Id] = el
+	}
+
+	config.WordPool = final_word_pool
 }
 
 func speechVocab(id int) (speechUrl string, err error) {
@@ -95,6 +100,25 @@ func DrawVocab(c *gin.Context) {
 	pool_length := len(config.WordPool)
 	word_insex := rand.Intn(pool_length - 1)
 	r = config.WordPool[word_insex]
+	speechURL, err := speechVocab(r.Id)
+	if err != nil {
+		log.Println(err)
+		handleResponse(c, r)
+		return
+	}
+	r.Speech = speechURL
+
+	handleResponse(c, r)
+}
+
+func DrawVocabOnMap(c *gin.Context) {
+	r := func() transport.Word {
+		for _, el := range config.WordPool {
+			return el
+		}
+		return transport.Word{}
+	}()
+
 	speechURL, err := speechVocab(r.Id)
 	if err != nil {
 		log.Println(err)
@@ -195,6 +219,8 @@ func SubmitFeedback(c *gin.Context) {
 		handleResponse(c, r)
 		return
 	}
+
+	delete(config.WordPool, r.Id)
 
 	r.Status = true
 	handleResponse(c, r)
