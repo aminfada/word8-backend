@@ -3,6 +3,7 @@ package vocab
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -111,14 +112,17 @@ func speechVocab(id int) (speechUrl string, err error) {
 	return
 }
 
-func calculateCoverage() (coverage float64, dailyActivity float64, err error) {
+func calculateCoverage() (coverage string, dailyActivity string, err error) {
+	fmt.Println("111", time.Now())
 	todayActivity, err := config.DB.Model(&db.Word{}).
 		Where("?>?", pg.Ident("draw_no"), 0).
-		Where("?=?", pg.Ident("date(updated_at)"), time.Now()).
+		Where("date(updated_at)=?", time.Now().Format("2006-01-02")).
 		Count()
 	if err != nil {
 		return
 	}
+
+	fmt.Println("todayActivity", todayActivity)
 
 	totalDrawed, err := config.DB.Model(&db.Word{}).
 		Where("?>?", pg.Ident("draw_no"), 0).
@@ -126,20 +130,28 @@ func calculateCoverage() (coverage float64, dailyActivity float64, err error) {
 	if err != nil {
 		return
 	}
+	fmt.Println("totalDrawed", totalDrawed)
 
 	total, err := config.DB.Model(&db.Word{}).
 		Count()
 	if err != nil {
 		return
 	}
+	fmt.Println("total", total)
 
-	coverage = (float64(totalDrawed) / float64(total)) * 100.0
-	dailyActivity = (float64(todayActivity) / float64(100)) * 100.0
+	coverageF := (float64(totalDrawed) / float64(total)) * 100.0
+	dailyActivityF := (float64(todayActivity) / float64(100)) * 100.0
+
+	coverage = fmt.Sprintf("%.3f%%", coverageF)
+	dailyActivity = fmt.Sprintf("%.3f%%", dailyActivityF)
+	fmt.Println("coverage", coverage)
+	fmt.Println("dailyActivity", dailyActivity)
 
 	return
 }
 
 func DrawVocab(c *gin.Context) {
+	fmt.Println("222")
 	var r transport.Word
 
 	pool_length := len(config.WordPool)
@@ -152,13 +164,6 @@ func DrawVocab(c *gin.Context) {
 		return
 	}
 	r.Speech = speechURL
-
-	r.Coverage, r.TodayActivity, err = calculateCoverage()
-	if err != nil {
-		log.Println(err)
-		handleResponse(c, r)
-		return
-	}
 
 	handleResponse(c, r)
 }
@@ -178,6 +183,13 @@ func DrawVocabOnMap(c *gin.Context) {
 		return
 	}
 	r.Speech = speechURL
+
+	r.Coverage, r.TodayActivity, err = calculateCoverage()
+	if err != nil {
+		log.Println(err)
+		handleResponse(c, r)
+		return
+	}
 
 	handleResponse(c, r)
 }
