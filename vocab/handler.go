@@ -21,7 +21,22 @@ import (
 
 func RenewThePool() {
 	var low_drawed []db.Word
-	err := config.DB.Model(&low_drawed).OrderExpr("draw_no ASC").Limit(50).Select()
+	err := config.DB.Model(&low_drawed).
+		Where("?<?", pg.Ident("draw_success"), 7).
+		OrderExpr("draw_no ASC").
+		Limit(20).
+		Select()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	var passed_drawed []db.Word
+	err = config.DB.Model(&passed_drawed).
+		Where("?>=?", pg.Ident("draw_success"), 7).
+		OrderExpr("draw_no ASC").
+		Limit(5).
+		Select()
 	if err != nil {
 		log.Println(err)
 		return
@@ -31,6 +46,7 @@ func RenewThePool() {
 	err = config.DB.Model(&high_failed).
 		Where("?<=?", pg.Ident("updated_at"), time.Now().Add(-time.Hour*24)).
 		Where("?>?", pg.Ident("draw_fail"), 0).
+		Where("?<?", pg.Ident("draw_success"), 7).
 		Select()
 	if err != nil {
 		log.Println(err)
@@ -47,10 +63,11 @@ func RenewThePool() {
 		}
 	}
 
-	high_failed_index := math.Max(0, float64(len(shuffled_high_failed)))
+	high_failed_index := math.Max(0, 10)
 
 	var all_words []db.Word
 	all_words = append(all_words, low_drawed...)
+	all_words = append(all_words, passed_drawed...)
 	all_words = append(all_words, shuffled_high_failed[:int(high_failed_index)]...)
 
 	dest := make([]transport.Word, len(all_words))
@@ -94,6 +111,34 @@ func speechVocab(id int) (speechUrl string, err error) {
 	return
 }
 
+func calculateCoverage() (coverage float64, dailyActivity float64, err error) {
+	todayActivity, err := config.DB.Model(&db.Word{}).
+		Where("?>?", pg.Ident("draw_no"), 0).
+		Where("?=?", pg.Ident("date(updated_at)"), time.Now()).
+		Count()
+	if err != nil {
+		return
+	}
+
+	totalDrawed, err := config.DB.Model(&db.Word{}).
+		Where("?>?", pg.Ident("draw_no"), 0).
+		Count()
+	if err != nil {
+		return
+	}
+
+	total, err := config.DB.Model(&db.Word{}).
+		Count()
+	if err != nil {
+		return
+	}
+
+	coverage = (float64(totalDrawed) / float64(total)) * 100.0
+	dailyActivity = (float64(todayActivity) / float64(100)) * 100.0
+
+	return
+}
+
 func DrawVocab(c *gin.Context) {
 	var r transport.Word
 
@@ -107,6 +152,13 @@ func DrawVocab(c *gin.Context) {
 		return
 	}
 	r.Speech = speechURL
+
+	r.Coverage, r.TodayActivity, err = calculateCoverage()
+	if err != nil {
+		log.Println(err)
+		handleResponse(c, r)
+		return
+	}
 
 	handleResponse(c, r)
 }
