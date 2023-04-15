@@ -39,6 +39,7 @@ func run(cmd *cobra.Command, args []string) {
 	baseRoute := r.Group(configs.Cfg.Context)
 	{
 		baseRoute.GET("vocab", vocab.DrawVocabOnMap)
+		baseRoute.GET("vocab/last", vocab.LastFeedbackedVocab)
 		baseRoute.POST("vocab", vocab.AddVocab)
 		baseRoute.PUT("vocab", vocab.SubmitFeedback)
 	}

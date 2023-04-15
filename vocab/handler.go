@@ -297,3 +297,25 @@ func handleResponse(c *gin.Context, body interface{}) {
 	}
 	c.Data(200, "application/json; charset=utf-8", b)
 }
+
+func LastFeedbackedVocab(c *gin.Context) {
+	var words []db.Word
+	err := config.DB.Model(&words).
+		Where("?>?", pg.Ident("draw_no"), 0).
+		OrderExpr("updated_at DESC").
+		Limit(100).
+		Select()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	var r []transport.Word
+	for _, word := range words {
+		r = append(r, transport.Word{
+			Title: word.Word,
+		})
+	}
+
+	handleResponse(c, r)
+}
