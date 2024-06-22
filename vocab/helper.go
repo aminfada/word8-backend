@@ -124,6 +124,7 @@ func calculateCoverage() (coverage string, dailyActivity string, err error) {
 	return
 }
 
+// deprecated
 func Draw_V1() (r transport.Word) {
 	pool_length := len(config.WordPool)
 	word_index := rand.Intn(pool_length - 1)
@@ -132,6 +133,7 @@ func Draw_V1() (r transport.Word) {
 	return
 }
 
+// using map to inherently return shuffled draw
 func Draw_V2() (r transport.Word) {
 	r = func() transport.Word {
 		for _, el := range config.WordPool {

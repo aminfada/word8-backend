@@ -133,6 +133,7 @@ func LastFeedbackedVocab(c *gin.Context) {
 	handleResponse(c, 200, r)
 }
 
+// todo: consider adding error code on failure
 func handleResponse(c *gin.Context, statusCode int, body interface{}) {
 	b, err := json.Marshal(body)
 	if err != nil {
