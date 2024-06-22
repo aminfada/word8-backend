@@ -3,183 +3,22 @@ package vocab
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
-	"math"
-	"math/rand"
-	"os"
 	"time"
 	"vocab8/config"
-	"vocab8/domain/db"
 	"vocab8/domain/transport"
+	"vocab8/vocab/repository"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-pg/pg/v10"
-	htgotts "github.com/hegedustibor/htgo-tts"
-	"github.com/hegedustibor/htgo-tts/handlers"
-	"github.com/hegedustibor/htgo-tts/voices"
 )
 
-func RenewThePool() {
-	var low_drawed []db.Word
-	err := config.DB.Model(&low_drawed).
-		Where("?<?", pg.Ident("draw_success"), 7).
-		OrderExpr("draw_no ASC").
-		Limit(20).
-		Select()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	var passed_drawed []db.Word
-	err = config.DB.Model(&passed_drawed).
-		Where("?>=?", pg.Ident("draw_success"), 7).
-		OrderExpr("draw_no ASC").
-		Limit(5).
-		Select()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	var high_failed []db.Word
-	err = config.DB.Model(&high_failed).
-		Where("?<=?", pg.Ident("updated_at"), time.Now().Add(-time.Hour*24)).
-		Where("?>?", pg.Ident("draw_fail"), 0).
-		Where("?<?", pg.Ident("draw_success"), 7).
-		Select()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	shuffled_high_failed := make([]db.Word, len(high_failed))
-	perm := rand.Perm(len(high_failed))
-	for i, v := range perm {
-		shuffled_high_failed[v] = db.Word{
-			Word:        high_failed[i].Word,
-			Description: high_failed[i].Description,
-			Id:          high_failed[i].Id,
-		}
-	}
-
-	high_failed_index := math.Max(0, 10)
-
-	var all_words []db.Word
-	all_words = append(all_words, low_drawed...)
-	all_words = append(all_words, passed_drawed...)
-	all_words = append(all_words, shuffled_high_failed[:int(high_failed_index)]...)
-
-	dest := make([]transport.Word, len(all_words))
-	perm = rand.Perm(len(all_words))
-	for i, v := range perm {
-		dest[v] = transport.Word{
-			Title:       all_words[i].Word,
-			Description: all_words[i].Description,
-			Id:          all_words[i].Id,
-		}
-	}
-
-	final_word_pool := make(map[int]transport.Word)
-	for _, el := range dest {
-		final_word_pool[el.Id] = el
-	}
-
-	config.WordPool = final_word_pool
-}
-
-func speechVocab(id int) (speechUrl string, err error) {
-	var data db.Word
-	data.Id = id
-	err = config.DB.Model(&data).WherePK().Select()
-	if err != nil {
-		return
-	}
-
-	err = os.Remove(config.Cfg.SpeechPath + "speech.mp3")
-	if err != nil {
-		return
-	}
-
-	speech := htgotts.Speech{Folder: config.Cfg.SpeechPath, Language: voices.English, Handler: &handlers.Native{}}
-	filePath, err := speech.CreateSpeechFile(data.Word, "speech")
-	if err != nil {
-		return
-	}
-
-	speechUrl = config.Cfg.SpeechPath + filePath
-	return
-}
-
-func calculateCoverage() (coverage string, dailyActivity string, err error) {
-	fmt.Println("111", time.Now())
-	todayActivity, err := config.DB.Model(&db.Word{}).
-		Where("?>?", pg.Ident("draw_no"), 0).
-		Where("date(updated_at)=?", time.Now().Format("2006-01-02")).
-		Count()
-	if err != nil {
-		return
-	}
-
-	fmt.Println("todayActivity", todayActivity)
-
-	totalDrawed, err := config.DB.Model(&db.Word{}).
-		Where("?>?", pg.Ident("draw_no"), 0).
-		Count()
-	if err != nil {
-		return
-	}
-	fmt.Println("totalDrawed", totalDrawed)
-
-	total, err := config.DB.Model(&db.Word{}).
-		Count()
-	if err != nil {
-		return
-	}
-	fmt.Println("total", total)
-
-	coverageF := (float64(totalDrawed) / float64(total)) * 100.0
-	dailyActivityF := (float64(todayActivity) / float64(100)) * 100.0
-
-	coverage = fmt.Sprintf("%.3f%%", coverageF)
-	dailyActivity = fmt.Sprintf("%.3f%%", dailyActivityF)
-	fmt.Println("coverage", coverage)
-	fmt.Println("dailyActivity", dailyActivity)
-
-	return
-}
-
 func DrawVocab(c *gin.Context) {
-	fmt.Println("222")
-	var r transport.Word
-
-	pool_length := len(config.WordPool)
-	word_insex := rand.Intn(pool_length - 1)
-	r = config.WordPool[word_insex]
-	speechURL, err := speechVocab(r.Id)
-	if err != nil {
-		log.Println(err)
-		handleResponse(c, r)
-		return
-	}
-	r.Speech = speechURL
-
-	handleResponse(c, r)
-}
-
-func DrawVocabOnMap(c *gin.Context) {
-	r := func() transport.Word {
-		for _, el := range config.WordPool {
-			return el
-		}
-		return transport.Word{}
-	}()
+	r := Draw_V2()
 
 	speechURL, err := speechVocab(r.Id)
 	if err != nil {
 		log.Println(err)
-		handleResponse(c, r)
+		handleResponse(c, 500, r)
 		return
 	}
 	r.Speech = speechURL
@@ -187,11 +26,11 @@ func DrawVocabOnMap(c *gin.Context) {
 	r.Coverage, r.TodayActivity, err = calculateCoverage()
 	if err != nil {
 		log.Println(err)
-		handleResponse(c, r)
+		handleResponse(c, 500, r)
 		return
 	}
 
-	handleResponse(c, r)
+	handleResponse(c, 200, r)
 }
 
 func AddVocab(c *gin.Context) {
@@ -199,48 +38,35 @@ func AddVocab(c *gin.Context) {
 	err := c.Bind(&r)
 	if err != nil {
 		log.Println(err)
-		handleResponse(c, r)
+		handleResponse(c, 400, r)
 		return
 	}
 
 	if len(r.Title) == 0 || len(r.Description) == 0 {
 		err = errors.New("empty body")
 		log.Println(err)
-		handleResponse(c, r)
+		handleResponse(c, 400, r)
 		return
 	}
 
 	if r.Id > 0 {
-		data := db.Word{
-			Id:          r.Id,
-			Word:        r.Title,
-			Description: r.Description,
-		}
-		_, err = config.DB.Model(&data).
-			WherePK().
-			Column("description").
-			Column("word").
-			Update()
+		err = repository.UpdateWord(r.Id, r.Title, r.Description)
 		if err != nil {
 			log.Println(err)
-			handleResponse(c, r)
+			handleResponse(c, 500, r)
 			return
 		}
 	} else {
-		data := db.Word{
-			Word:        r.Title,
-			Description: r.Description,
-		}
-		_, err = config.DB.Model(&data).Insert()
+		err = repository.InsertWord(r.Title, r.Description)
 		if err != nil {
 			log.Println(err)
-			handleResponse(c, r)
+			handleResponse(c, 500, r)
 			return
 		}
 	}
 
 	r.Status = true
-	handleResponse(c, r)
+	handleResponse(c, 200, r)
 }
 
 func SubmitFeedback(c *gin.Context) {
@@ -248,23 +74,21 @@ func SubmitFeedback(c *gin.Context) {
 	err := c.Bind(&r)
 	if err != nil {
 		log.Println(err)
-		handleResponse(c, r)
+		handleResponse(c, 400, r)
 		return
 	}
 
 	if r.Id <= 0 || (!r.Success && !r.Fail) {
 		err = errors.New("empty body")
 		log.Println(err)
-		handleResponse(c, r)
+		handleResponse(c, 400, r)
 		return
 	}
 
-	var data db.Word
-	data.Id = r.Id
-	err = config.DB.Model(&data).WherePK().Select()
+	data, err := repository.FetchDrawById(r.Id)
 	if err != nil {
 		log.Println(err)
-		handleResponse(c, r)
+		handleResponse(c, 500, r)
 		return
 	}
 
@@ -275,47 +99,44 @@ func SubmitFeedback(c *gin.Context) {
 		data.DrawFail++
 	}
 	data.DrawNo++
-
 	data.UpdatedAt = time.Now()
-	_, err = config.DB.Model(&data).WherePK().Update()
+
+	err = repository.UpdateDrawStats(data.Id, data.DrawFail, data.DrawNo, data.DrawSuccess)
 	if err != nil {
 		log.Println(err)
-		handleResponse(c, r)
+		handleResponse(c, 500, r)
 		return
 	}
 
 	delete(config.WordPool, r.Id)
 
 	r.Status = true
-	handleResponse(c, r)
-}
-
-func handleResponse(c *gin.Context, body interface{}) {
-	b, err := json.Marshal(body)
-	if err != nil {
-		log.Println(err)
-	}
-	c.Data(200, "application/json; charset=utf-8", b)
+	handleResponse(c, 200, r)
 }
 
 func LastFeedbackedVocab(c *gin.Context) {
-	var words []db.Word
-	err := config.DB.Model(&words).
-		Where("?>?", pg.Ident("draw_no"), 0).
-		OrderExpr("updated_at DESC").
-		Limit(100).
-		Select()
+	var r []transport.Word
+
+	words, err := repository.FetchLastNDraw(100)
 	if err != nil {
 		log.Println(err)
+		handleResponse(c, 500, r)
 		return
 	}
 
-	var r []transport.Word
 	for _, word := range words {
 		r = append(r, transport.Word{
 			Title: word.Word,
 		})
 	}
 
-	handleResponse(c, r)
+	handleResponse(c, 200, r)
+}
+
+func handleResponse(c *gin.Context, statusCode int, body interface{}) {
+	b, err := json.Marshal(body)
+	if err != nil {
+		log.Println(err)
+	}
+	c.Data(statusCode, "application/json; charset=utf-8", b)
 }
